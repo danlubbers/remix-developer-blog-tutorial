@@ -2,14 +2,14 @@ import type { LoaderFunction } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { Link, Outlet, useLoaderData } from "@remix-run/react";
 
-import { getPosts } from "~/models/post.server";
+import { getPostListings } from "~/models/post.server";
 
 type LoaderData = {
-  posts: Awaited<ReturnType<typeof getPosts>>;
+  posts: Awaited<ReturnType<typeof getPostListings>>;
 };
 
 export const loader: LoaderFunction = async () => {
-  return json({ posts: await getPosts() });
+  return json({ posts: await getPostListings() });
 };
 
 export default function PostAdmin() {
@@ -33,9 +33,10 @@ export default function PostAdmin() {
             ))}
           </ul>
         </nav>
-        <main className="col-span-4 md:col-span-3">...</main>
+        <main className="col-span-4 md:col-span-3">
+          <Outlet />
+        </main>
       </div>
-      <Outlet />
     </div>
   );
 }
