@@ -1,14 +1,23 @@
 import type { ActionFunction, LoaderFunction } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
-import { Form, useActionData, useTransition } from "@remix-run/react";
+import {
+  Form,
+  useActionData,
+  useLoaderData,
+  useTransition,
+} from "@remix-run/react";
 import invariant from "tiny-invariant";
 
-import { createPost } from "~/models/post.server";
+import { createPost, getPost, updatePost } from "~/models/post.server";
 import { requireAdminUser } from "~/session.server";
 
-export const loader: LoaderFunction = async ({ request }) => {
+export const loader: LoaderFunction = async ({ request, params }) => {
   await requireAdminUser(request);
-  return json({});
+  if (params.slug === "new") {
+    return json({});
+  }
+  const post = await getPost(params.slug);
+  return json({ post });
 };
 
 type ActionData =
@@ -19,7 +28,7 @@ type ActionData =
     }
   | undefined;
 
-export const action: ActionFunction = async ({ request }) => {
+export const action: ActionFunction = async ({ request, params }) => {
   await requireAdminUser(request);
   const formData = await request.formData();
 
@@ -42,7 +51,11 @@ export const action: ActionFunction = async ({ request }) => {
   invariant(typeof slug === "string", "slug must be a string");
   invariant(typeof markdown === "string", "markdown must be a string");
 
-  await createPost({ title, slug, markdown });
+  if (params.slug === "new") {
+    await createPost({ title, slug, markdown });
+  } else {
+    await updatePost(params.slug, { title, slug, markdown });
+  }
 
   return redirect("/posts/admin");
 };
@@ -50,24 +63,40 @@ export const action: ActionFunction = async ({ request }) => {
 const inputClassName = `w-full rounded border border-gray-500 px-2 py-1 text-lg`;
 
 export default function NewPost() {
+  const data = useLoaderData();
+  console.log("data", data);
   const errors = useActionData() as ActionData;
   const transition = useTransition();
-  const isCreating = Boolean(transition.submission);
-  console.log("errors", errors);
+  const isCreating =
+    transition.submission?.formData.get("intentBtn") === "create";
+  const isUpdating =
+    transition.submission?.formData.get("intentBtn") === "update";
+  const isNewPost = !data.post;
+
   return (
-    <Form method="post">
+    <Form method="post" key={data.post?.slug ?? "new"}>
       <p>
         <label>
           Post Title:{" "}
           {errors?.title && <em className="text-red-600">{errors.title}</em>}
-          <input type="text" name="title" className={inputClassName} />
+          <input
+            type="text"
+            name="title"
+            className={inputClassName}
+            defaultValue={data.post?.title}
+          />
         </label>
       </p>
       <p>
         <label>
           Post Slug:{" "}
           {errors?.slug && <em className="text-red-600">{errors.slug}</em>}
-          <input type="text" name="slug" className={inputClassName} />
+          <input
+            type="text"
+            name="slug"
+            className={inputClassName}
+            defaultValue={data.post?.slug}
+          />
         </label>
       </p>
       <p>
@@ -84,15 +113,19 @@ export default function NewPost() {
           rows={20}
           name="markdown"
           className={`${inputClassName} font-mono`}
+          defaultValue={data.post?.markdown}
         />
       </p>
       <p className="text-right">
         <button
           type="submit"
+          name="intentBtn"
+          value={isNewPost ? "create" : "update"}
           className="rounded bg-blue-500 py-2 px-4 text-white hover:bg-blue-600 focus:bg-blue-400 disabled:bg-blue-300"
-          disabled={isCreating}
+          disabled={isCreating || isUpdating}
         >
-          {isCreating ? "Creating..." : "Create Post"}
+          {isNewPost ? (isCreating ? "Creating..." : "Create Post") : null}
+          {isNewPost ? null : isUpdating ? "Updating..." : "Update Post"}
         </button>
       </p>
     </Form>
