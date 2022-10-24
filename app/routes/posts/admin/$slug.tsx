@@ -8,7 +8,12 @@ import {
 } from "@remix-run/react";
 import invariant from "tiny-invariant";
 
-import { createPost, getPost, updatePost } from "~/models/post.server";
+import {
+  createPost,
+  getPost,
+  updatePost,
+  deletePost,
+} from "~/models/post.server";
 import { requireAdminUser } from "~/session.server";
 
 export const loader: LoaderFunction = async ({ request, params }) => {
@@ -31,6 +36,12 @@ type ActionData =
 export const action: ActionFunction = async ({ request, params }) => {
   await requireAdminUser(request);
   const formData = await request.formData();
+  const intentBtn = formData.get("intentBtn");
+
+  if (intentBtn === "delete") {
+    await deletePost(params.slug);
+    return redirect("/posts/admin");
+  }
 
   const title = formData.get("title");
   const slug = formData.get("slug");
@@ -71,6 +82,8 @@ export default function NewPost() {
     transition.submission?.formData.get("intentBtn") === "create";
   const isUpdating =
     transition.submission?.formData.get("intentBtn") === "update";
+  const isDeleting =
+    transition.submission?.formData.get("intentBtn") === "delete";
   const isNewPost = !data.post;
 
   return (
@@ -116,7 +129,18 @@ export default function NewPost() {
           defaultValue={data.post?.markdown}
         />
       </p>
-      <p className="text-right">
+      <div className="flex justify-end gap-4">
+        {!isNewPost && (
+          <button
+            type="submit"
+            name="intentBtn"
+            value={"delete"}
+            className="rounded bg-red-500 py-2 px-4 text-white hover:bg-red-600 focus:bg-red-400 disabled:bg-blue-300"
+            disabled={isDeleting}
+          >
+            {isDeleting ? null : isUpdating ? "Deleting..." : "Delete"}
+          </button>
+        )}
         <button
           type="submit"
           name="intentBtn"
@@ -127,7 +151,7 @@ export default function NewPost() {
           {isNewPost ? (isCreating ? "Creating..." : "Create Post") : null}
           {isNewPost ? null : isUpdating ? "Updating..." : "Update Post"}
         </button>
-      </p>
+      </div>
     </Form>
   );
 }
